@@ -71,12 +71,17 @@ def post_due_pins():
             pin_desc = item["pin_description"]
             pin_link = item["etsy_url"]
             target_board = BOARD_MAPPING.get(item["board_name"], item["board_name"])
-            img_path = item["image_path"]
+            img_path = item.get("image_path", "")
             tags_list = [t.strip() for t in item.get("tagged_topics", "").split(",") if t.strip()][:4]
-
+            # Ensure path works across Windows and Linux (GitHub Actions)
             if not os.path.exists(img_path):
-                print(f"⚠️ Image missing: {img_path}. Skipping.")
-                continue
+                filename = os.path.basename(img_path) or item.get("image_filename", "")
+                fallback_path = os.path.join(BASE_DIR, "output_pins", "variations", filename)
+                if os.path.exists(fallback_path):
+                    img_path = fallback_path
+                else:
+                    print(f"⚠️ Image missing: {img_path} (also checked {fallback_path}). Skipping.")
+                    continue
 
             print(f"\n[{idx}/{len(due_pins)}] 📌 Publishing: {pin_title[:55]}...")
             print(f"    Scheduled for: {item['scheduled_date']} {item['scheduled_time']} | Board: {target_board}")

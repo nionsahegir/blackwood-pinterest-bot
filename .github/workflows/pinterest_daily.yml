@@ -1,0 +1,39 @@
+name: Pinterest Daily Cloud Auto-Poster
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 8 * * *'  # Backup cron: 2:30 PM BST (8:30 UTC)
+
+jobs:
+  publish-pins:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Run Daily Poster
+        run: |
+          python -u post_todays_schedule.py
+
+      - name: Commit & Push Updated Calendar
+        run: |
+          git config --global user.name "Pinterest Bot"
+          git config --global user.email "bot@blackwoodarchives.com"
+          git add marketing_calendar_30_days.json
+          git diff --staged --quiet || git commit -m "Auto-update calendar: pins published [skip ci]"
+          git push
