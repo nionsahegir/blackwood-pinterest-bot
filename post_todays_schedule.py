@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from playwright.sync_api import sync_playwright
 
 # Ensure UTF-8 console output
@@ -36,19 +36,40 @@ def save_calendar(data):
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 def post_due_pins():
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    # BST timezone (UTC+6)
+    BST = timezone(timedelta(hours=6))
+    now_bst = datetime.now(BST)
+    today_str = now_bst.strftime("%Y-%m-%d")
+    now_time_str = now_bst.strftime("%H:%M")
+    
     calendar = load_calendar()
     
-    due_pins = [
-        item for item in calendar
-        if item.get("scheduled_date", "") <= today_str and not item.get("posted", False)
-    ]
+    # Check for overdue or currently due pins
+    due_pins = []
+    for item in calendar:
+        if item.get("posted", False):
+            continue
+        s_date = item.get("scheduled_date", "")
+        s_time = item.get("scheduled_time_24h", "23:59")
+        if s_date < today_str:
+            due_pins.append(item)
+        elif s_date == today_str and s_time <= now_time_str:
+            due_pins.append(item)
+
+    # Fallback: if runner triggered manually or slightly before scheduled minute, pick next pending for today
+    if not due_pins:
+        pending_today = [x for x in calendar if not x.get("posted") and x.get("scheduled_date") == today_str]
+        if pending_today:
+            print(f"📌 Runner triggered at {now_time_str} BST: selecting next upcoming pin for today ({today_str})...")
+            due_pins = [pending_today[0]]
 
     if not due_pins:
-        print(f"✅ No pending scheduled pins due on or before {today_str}!")
+        print(f"✅ No pending scheduled pins due right now (Current time: {today_str} {now_time_str} BST)!")
         return
 
-    print(f"🚀 Found {len(due_pins)} scheduled pin(s) due on or before {today_str}. Starting automated publishing...")
+    # Cap to max 3 pins per execution to ensure smooth runs
+    due_pins = due_pins[:3]
+    print(f"🚀 Found {len(due_pins)} scheduled pin(s) ready to publish for {today_str} ({now_time_str} BST)...")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)

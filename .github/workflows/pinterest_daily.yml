@@ -3,7 +3,9 @@ name: Pinterest Daily Cloud Auto-Poster
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 8 * * *'  # Backup cron: 2:30 PM BST (8:30 UTC)
+    - cron: '0 8 * * *'    # Slot 1: 02:00 PM BST (08:00 UTC)
+    - cron: '30 12 * * *'  # Slot 2: 06:30 PM BST (12:30 UTC)
+    - cron: '30 15 * * *'  # Slot 3: 09:30 PM BST (15:30 UTC)
 
 jobs:
   publish-pins:
